@@ -8,7 +8,7 @@ Description: This package will download and clean gps data as well as create mov
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.3
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
@@ -23,16 +23,15 @@ Imports:
     leaflet,
     lubridate,
     mailR,
-    plotKML,
     mapview,
+    pdftools,
     plyr,
     processx,
     purrr,
     recurse,
     rmarkdown,
     sp,
-    zoo,
-    maptools
+    zoo
 Depends: 
   R (>= 4.0)
 LazyData: true

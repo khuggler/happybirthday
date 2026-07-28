@@ -4,8 +4,9 @@
 #' @param rollmean movement data product from the moveMetrics function
 #' @param subsetmonth month to start plotting
 #' @param tempdir temporary directory for storing products
+#' @param spp character vector of species of interest. Choices include BHS, MD, ELK, MOOSE.
 #' @return returns plots for movement metrics in the temporary directory
-#' @details 
+#' @details DETAILS
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
@@ -14,12 +15,17 @@
 #' }
 #' @rdname makeMarkdown
 #' @export 
-makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
+
+makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir, envir = parent.frame(), spp){
   
   if(spp == "BHS"){
- data(BHS_OneHour, package = "happybirthday")
+    data(BHS_OneHour, package = "happybirthday")
   }
   
+  ls(envir = envir)
+  require(zoo)
+  require(dplyr)
+
   plotdir<-paste0(tempdir, "/", "Plots")
   if(dir.exists(plotdir)){
     fls = dir(plotdir, full.names = TRUE, recursive = TRUE, include.dirs = TRUE)
@@ -137,11 +143,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       abline(h = mm, col = "blue", lty = 2)
       
       
-      
-      
-      
-      
-      # Visitation 100 meters
+            # Visitation 100 meters
       plot(sub$t_, sub$Vis_100, type = "l", ylab = "Number of visits (100 meters)",
            xlab = "Date", main = "Number of visits", cex = 1.25)
       
@@ -160,6 +162,12 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       abline(h = mm, col = "blue", lty = 2)
       
       
+    
+      if(spp == "BHS"){
+        x1<-paste('bhs_', sub$Hour[1], "Hour", sep = "")
+        ds<-c(x1)
+        data(list = ds, package = "happybirthday")
+      }
    
       # here need to pick the correct RF model 
       
@@ -176,6 +184,76 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
     
     # here need to input the simulrf--sup_fn
     toto<-rle(as.vector(as.numeric(sub[,"MeanThreshold"] > 0.257)))
+
+      
+      if(spp == "MD"){
+        x1<-paste('md_', sub$Hour[1], "Hour", sep = "")
+        ds<-c(x1)
+        data(list = ds, package = "happybirthday")
+      }
+      
+      
+      if(spp == "ELK"){
+        x1<-paste('elk_', sub$Hour[1], "Hour", sep = "")
+        ds<-c(x1)
+        data(list = ds, package = "happybirthday")
+      }
+      
+      if(spp == "MOOSE"){
+        x1<-paste('moose_', sub$Hour[1], "Hour", sep = "")
+        ds<-c(x1)
+        data(list = ds, package = "happybirthday")
+      }
+       
+      
+      
+      Pattern1_list <- mget(x = x1, envir = parent.frame())[[1]]
+      # here need to pick the correct RF model 
+      sub$pred_prob<-as.numeric(randomForest:::predict.randomForest(Pattern1_list,sub,type='prob')[,1])
+      
+    
+    
+    # here need to input the right threshold
+      
+      if(spp == "BHS"){
+        # probability of parturition plot
+        
+        data(bhs_thresh, package = "happybirthday")
+        thresh<-bhs_thresh[bhs_thresh$tw == sub$Hour[1],]$Threshold
+        fneg<-bhs_thresh[bhs_thresh$tw == sub$Hour[1],]$sup_fn
+      }
+      
+      
+      if(spp == "MD"){
+        data(md_thresh, package = "happybirthday")
+        thresh<-md_thresh[md_thresh$tw == sub$Hour[1],]$Threshold
+        fneg<-md_thresh[md_thresh$tw == sub$Hour[1],]$sup_fn
+      }
+      
+      
+      if(spp == "ELK"){
+        data(elk_thresh, package = "happybirthday")
+        thresh<-elk_thresh[elk_thresh$tw == sub$Hour[1],]$Threshold
+        fneg<-elk_thresh[elk_thresh$tw == sub$Hour[1],]$sup_fn
+      }
+      
+      if(spp == "MOOSE"){
+        data(moose_thresh, package = "happybirthday")
+        thresh<-moose_thresh[moose_thresh$tw == sub$Hour[1],]$Threshold
+        fneg<-moose_thresh[moose_thresh$tw == sub$Hour[1],]$sup_fn
+      }
+    
+   
+    
+    # here need to input the right sliding window 
+    slw<-round(24/sub$Hour[1])
+    
+    sub[,"MeanThreshold"] <- as.vector(rollapply(zoo(sub[,"pred_prob"]), slw, function(x){mean(sum(as.numeric(x > thresh), na.rm=T), na.rm=T)}, fill=NA))/as.vector(rollapply(zoo(sub[,"pred_prob"]), slw, function(x){length(x[!is.na(x)])}, fill=NA))
+    sub<-sub[complete.cases(sub$pred_prob),]
+    
+    # here need to input the simulrf--sup_fn
+    toto<-rle(as.vector(as.numeric(sub[,"MeanThreshold"] > fneg)))
+
     
     if(length(which(toto$values==1)) > 0){
       
@@ -184,12 +262,16 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       toto$parturition_start<-sub$t_[toto$end - toto$duration + 1]
       toto$parturition_end<-sub$t_[toto$end]
       toto$duration<-as.vector(difftime(toto$parturition_end, toto$parturition_start, unit="hours"))
-      toto$id <- uni[i]
+
+      toto$id <- sub$AID[1]
+
       #toto$tw <- hrs[p]
       toto<-toto[,c("id","parturition_start","parturition_end","duration")]
       for(line in 1:nrow(toto)){
         
+
         #mean predicted probability above error rate between the parturution start and end
+
         toto$prop[line] <- mean(sub[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line],"MeanThreshold"], na.rm = T)
         # mean predicted probability raw
         toto$propmb[line] <- mean(sub[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line],"pred_prob"], na.rm = T)
@@ -209,6 +291,28 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
     plot(sub$t_, sub$PredictedProbability, type = "l", ylab = "Probability of parturition",
          xlab = "Date", main = "Probability of Parturition", cex = 1.25, ylim = c(0, thresh))
     abline(h = thresh, col = "blue", lty = 2)
+      #respred[[sub$AID[1]]] <- tmp
+    }
+  
+  
+    sub$jd<-as.Date(strftime(sub$t_, format = "%Y-%m-%d"), format = "%Y-%m-%d")
+    subsum<-sub %>%
+      group_by(jd) %>%
+      summarize(MaxProb = max(pred_prob, na.rm = T), 
+                MeanProb = mean(pred_prob, na.rm = T))
+    
+    plot(subsum$jd, subsum$MeanProb, type = "l", ylab = "Probability of parturition",
+         xlab = "Date", main = "Probability of Parturition", cex = 1.25, ylim = c(0, 1.0))
+    lines(subsum$jd, subsum$MaxProb, type = "l", lty = "dashed")
+    #abline(h = fneg, col = "blue", lty = 2)
+    text.col<-c('grey', 'green', 'blue', 'red')
+    if(nrow(tmp) >= 1){
+      tmp$weighted_date<-as.POSIXct(tmp$weighted_date, format = "%Y-%m-%d %H:%M:%S")
+      tmp$Date<-as.Date(strftime(tmp$weighted_date, format = "%Y-%m-%d"), '%Y-%m-%d')
+      tmp$ProbCat<-ifelse(tmp$propmb >=0 & tmp$propmb <= 0.25, "Low", ifelse(tmp$propmb > 0.25 & tmp$propmb <= 0.5, "Medium", ifelse(tmp$propmb > 0.50 & tmp$propmb <= 0.75, "Medium-High", ifelse(tmp$propmb > 0.75 & tmp$propmb <= 1.0, "High", NA))))
+      abline(v = tmp$Date, col = text.col[factor(tmp$ProbCat)], lwd = 2.5)
+      legend('topright', legend = c('Low', 'Medium', 'Medium-High', 'High'), col = text.col, lwd = 1)
+    }
     
    
       

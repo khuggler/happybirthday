@@ -4,7 +4,7 @@
 #' @param gpsdat data.frame of GPS data
 #' @param id_df lookup table of animal IDs and serial numbers
 #' @return Does not return any values. This function will save maps of the most recent locations in KML and GPS locations as well as the last three days of locations and movement in a leaflet map
-#' @details
+#' @details some details here 
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
@@ -23,6 +23,7 @@
 makeMaps<-function(tempdir, gpsdat, id_df){
   
   require(leaflet)
+  require(sf)
 
   savedir = paste0(tempdir, "/", 'Products/')
   if(!dir.exists(savedir)){
@@ -56,7 +57,7 @@ lastpoint<-lastpoint[complete.cases(lastpoint$x),]
 lastpoint<-sf::st_as_sf(lastpoint, coords = c('x', 'y'), crs = 4326) 
 names(lastpoint)[names(lastpoint) == 'AID']<-'name'
 
-#' add in a conditional coloring
+
 cut<-Sys.time()-lubridate::days(2)
 lastpoint$Flag<-ifelse(lastpoint$tdate >= cut, 'http://maps.google.com/mapfiles/kml/pal2/icon18.png', 'http://maps.google.com/mapfiles/kml/pal4/icon48.png')
 
@@ -64,7 +65,7 @@ lastpoint$Flag<-ifelse(lastpoint$tdate >= cut, 'http://maps.google.com/mapfiles/
 kmlfile<-paste0(savedir, 'LatestLocs.kml')
 kmlname<-'BHS Locations'
 
-#lastpoint<-st_as_sf(lastpoint)
+
 # maptools::kmlPoints(lastpoint, kmlfile = kmlfile, name = lastpoint$name, icon = lastpoint$Flag, kmlname = kmlname)
 # # plotKML::kml_open(file.name = paste0(savedir, 'LatestLocs.kml'), overwrite = T)
 # # plotKML::kml_layer(lastpoint, 
