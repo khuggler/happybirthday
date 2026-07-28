@@ -338,5 +338,5 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir, envir = parent.fra
   }
   
  
-}
+
       
