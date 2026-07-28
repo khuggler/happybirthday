@@ -1,33 +1,7 @@
-#' @title getData
-#' @description This function downloads GPS data for a specified population and appends animal IDs
-#' @param id_df data.frame that has the animal ids and serial numbers
-#' @param tempdir character. path to temporary directory for telonics files to be saved. If this file in the path does not exist it will be created for you. Default is NA. 
-#' @param veckeys if Vectronic data is downloaded, path to Vectronic keys is needed, Default: NA
-#' @param telonic_usrs if telonic data is needed, vector of telonic usernames for download
-#' @param telonic_pass if telonic data is needed, vector of telonic passwords for download
-#' @param ATS_usrs if ATS data is needed, vector of ATS usernames
-#' @param ATS_pass if ATS data is needed, vectors of ATS passwords
-#' @param lotek_usrs if lotek data is needed, vector of telonic passwords for download
-#' @param lotek_pass if lotek data is needed, vector of lotek passwords for download
-#' @param tzone time zone for your study area. Options are "America/Los_Angeles" or "America/Denver". America/Los_Angeles is the default.
-#' @param subsetmonth month to start downloading GPS data
-#' @return OUTPUT_DESCRIPTION
-#' @details DETAILS
-#' @examples 
-#' \dontrun{
-#' if(interactive()){
-#'  #EXAMPLE1
-#'  }
-#' }
-#' @seealso 
-#'  \code{\link[processx]{run}}
-#'  \code{\link[collar]{ats_login}}, \code{\link[collar]{fetch_ats_positions}}, \code{\link[collar]{ats_logout}}, \code{\link[collar]{get_paths}}, \code{\link[collar]{fetch_vectronics}}
-#'  \code{\link[dplyr]{bind_rows}}
-#' @rdname getData
-#' @export 
-#' @importFrom processx run
 #' @importFrom collar ats_login fetch_ats_positions ats_logout get_paths fetch_vectronics
 #' @importFrom dplyr bind_rows
+
+
 getData<-function(id_df, tempdir = NA, veckeys = NA, telonic_usrs = NA, telonic_pass = NA, ATS_usrs = NA, ATS_pass = NA, lotek_usrs = NA, lotek_pass = NA, tzone = 'America/Los_Angeles', subsetmonth = "02"){
   
   require(dplyr)
@@ -125,7 +99,7 @@ if('Telonics' %in% mans){
     
     tel <- tel %>%
       rename(tdate = "GPS.Fix.Time", x = "GPS.Longitude", y = "GPS.Latitude", SN = "CollarSerialNumber") %>%
-      select(SN, tdate, x, y)
+      dplyr::select(SN, tdate, x, y)
     
     full.tel<-rbind(tel, full.tel)
     
@@ -174,7 +148,7 @@ if('Telonics' %in% mans){
     
     ats <- out.acct %>%
       rename(tdate = "DateLocal", SN = 'CollarSerialNumber', x = 'Longitude', y = 'Latitude') %>%
-      select(SN, tdate, x, y)
+      dplyr::select(SN, tdate, x, y)
     ats<-data.frame(ats)
     
     collar::ats_logout()
@@ -217,7 +191,7 @@ if('Telonics' %in% mans){
       
       lotek <- out.acct %>%
         rename(tdate = "UploadTimeStamp", SN = 'DeviceID', x = 'Longitude', y = 'Latitude') %>%
-        select(SN, tdate, x, y)
+        dplyr::select(SN, tdate, x, y)
       lotek<-data.frame(lotek)
       
       collar::lotek_logout()
@@ -244,7 +218,7 @@ if('Telonics' %in% mans){
     
     vec <- vecdat %>%
       rename(tdate = "acquisitiontime", SN = 'idcollar', x = 'longitude', y = 'latitude') %>%
-      select(SN, tdate, x, y)
+      dplyr::select(SN, tdate, x, y)
     
     vec$tdate <-as.POSIXct(vec$tdate,
                                        format = paste0("%Y-%m-%d", "T", "%H:%M:%S"),
@@ -275,9 +249,336 @@ if('Telonics' %in% mans){
   return(gps)
 }
   
+x<-getData(id_df = id_df, tempdir = tempdir, veckeys = veckeys, telonic_usrs = telonic_usrs, telonic_pass = telonic_pass, ATS_usrs = ATS_usrs, ATS_pass =ATS_pass, lotek_usrs= lotek_usrs, lotek_pass = lotek_pass, tzone = tzone, subsetmonth = subsetmonth)
+
+gpsdat=x
+require(leaflet)
+
+savedir = paste0(tempdir, "/", 'Products/')
+if(!dir.exists(savedir)){
+  dir.create(savedir)
+}
 
 
+assertthat::assert_that(class(gpsdat$tdate)[1] == "POSIXct", msg = "TelemDate column must be in POSIXct format")
+
+assertthat::assert_that('Frequency' %in% unique(names(id_df)), msg = "Lookup data must include Frequency")
+assertthat::assert_that('Serial' %in% unique(names(id_df)), msg = "Lookup data must include Serial")
+assertthat::assert_that('IdCol' %in% unique(names(id_df)), msg = "Lookup data must include IdCol")
+
+
+library(sf)
+uni<-unique(gpsdat$AID)
+
+lastpoint<-data.frame()
+for(i in 1:length(uni)){
+  sub<-gpsdat[gpsdat$AID==uni[i],]
+  sub<-sub[order(sub$tdate,decreasing = T),]
+  sub<-as.data.frame(sub)
   
+  lastpoint<-rbind(lastpoint,sub[1,])
+}
+lastpoint$AID<-as.character(lastpoint$AID)
+
+
+lastpoint<-lastpoint[complete.cases(lastpoint$x),]
+
+sp::coordinates(lastpoint)<-~x+y
+sp::proj4string(lastpoint)<-'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs' 
+
+names(lastpoint)[names(lastpoint) == 'AID']<-'name'
+
+#' add in a conditional coloring
+cut<-Sys.time()-lubridate::days(2)
+lastpoint$Flag<-ifelse(lastpoint$tdate >= cut, 'http://maps.google.com/mapfiles/kml/pal2/icon18.png', 'http://maps.google.com/mapfiles/kml/pal4/icon48.png')
+
+
+kmlfile<-paste0(savedir, 'LatestLocs.kml')
+kmlname<-'BHS Locations'
+
+lastpoint<-st_as_sf(lastpoint)
+# maptools::kmlPoints(lastpoint, kmlfile = kmlfile, name = lastpoint$name, icon = lastpoint$Flag, kmlname = kmlname)
+# # plotKML::kml_open(file.name = paste0(savedir, 'LatestLocs.kml'), overwrite = T)
+# # plotKML::kml_layer(lastpoint, 
+# #               file.name = paste0(savedir, 'LatestLocs.kml'), 
+# #              colour = lastpoint$Flag,
+# #              alpha = 1.0, 
+# #              shape = 'http://maps.google.com/mapfiles/kml/pal2/icon18.png',
+# #              points_names = lastpoint$name, 
+# #              balloon = FALSE,
+# #              labels = 2,
+# #              size = 1)
+# # plotKML::kml_close(file.name = paste0(savedir, 'LatestLocs.kml'))
+# # 
+# 
+lastpoint<-lastpoint[,names(lastpoint) == 'name']
+sf::st_write(lastpoint,paste(savedir,'LatestLocs.kml',sep=''),layer='locs',driver='KML',append = F)
+
+
+
+
+
+-# gg<-gpsdat
+# sp::coordinates(gg)<-c('x', 'y')
+# sp::proj4string(gg)<-'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs' 
+# # create mapView map
+# ids=unique(gg$AID)
+# trajectory <- list()
+# 
+# lasttwelve<-data.frame()
+# for (i in ids){
+#   spdf<-subset(gg, AID==i)
+#   spdf<-spdf[order(spdf$tdate, decreasing = T),]
+#   spdf<-spdf[1:12,]
+#   spdf$Category<-c(rep("4", 11), "8")
+#   bt<-sp::SpatialLines(list(sp::Lines(list(sp::Line(spdf)), "id")))
+#   trajectory[[i]]<-sp::Lines(list(sp::Line(spdf)), ID=paste(i))
+#   #trajectory[[i]]<-birdtrajectory
+#   print(i)
+#   
+#   lasttwelve<-rbind(data.frame(spdf), lasttwelve)
+# }
+# 
+# traj.sp<-sp::SpatialLines(trajectory)
+# 
+# trajectory.sp.data <- sp::SpatialLinesDataFrame(traj.sp,
+#                                                 data = data.frame(ID = ids), match.ID = FALSE)
+# 
+# 
+# sp::proj4string(trajectory.sp.data)<-'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs' 
+# sp::coordinates(lasttwelve)<-c('x', 'y')
+# sp::proj4string(lasttwelve)<-'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+# 
+# 
+# x<-mapview::mapview(trajectory.sp.data, map.types = 'Esri.WorldImagery', color = "black", legend = FALSE)+ mapview::mapview(lasttwelve, cex = "Category", zcol = "AID", legend = FALSE)
+# 
+# x<-leafem::addStaticLabels(map = x, label = trajectory.sp.data$ID, no.hide = FALSE, direction = 'top', textOnly = TRUE, textsize = "20px", color = "white")
+# mapview::mapshot(x, url = paste0(savedir, "LastTwelve.html"))
+# 
+# 
+# rm(x)
+
+
+pal <- leaflet::colorFactor(palette = 'Paired',domain = gpsdat$AID)
+
+#create custom icons for most recent locations
+icon.active <- makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=TRUE,
+                               iconColor = "black", library = "fa",
+                               squareMarker =  FALSE)
+icon.inactive <- makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=FALSE,
+                                 iconColor = "black", library = "fa",
+                                 squareMarker =  FALSE)
+
+# icon.mortality <- makeIcon("https://www.svgrepo.com/svg/404123/skull-and-crossbones",
+#                            iconWidth= 30, iconHeight= 30)
+
+
+
+sheepmap<-gpsdat[gpsdat$tdate>= Sys.time()-lubridate::days(3),]
+sheepmap<-sheepmap[complete.cases(sheepmap$x),]
+uni<-unique(sheepmap$AID)
+sheepmap$popup<-paste0(signif(sheepmap$y, digits = 6), ",", signif(sheepmap$x, digits = 7))
+for(n in 1:length(uni)){
+  out<-sheepmap[sheepmap$AID == uni[n],]
+  out<-out[order(out$tdate, decreasing = FALSE),]
+  
+  if(nrow(out)>0){
+    f_name<-out$AID[1] #create unique filename
+    
+    #set up leaflet options
+    out$Label<-NA
+    out$Label<-as.character(out$popup) #Create hover over layer
+    out$Popup<-NA
+    out$Popup<-f_name #Create hover over layer
+    if(exists("a")==FALSE){ #build leaflet with first animal
+      a<-out %>%
+        leaflet() %>%
+        #addTiles() %>%
+        #addProviderTiles("Esri.WorldImagery") %>%
+        addProviderTiles(providers$Esri.NatGeoWorldMap) %>%  #choose base layer
+        addCircleMarkers(lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100) %>% #add as circles
+        addPolylines(lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
+    }
+    
+    
+    a<-addCircleMarkers(map=a,data=out,lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100)
+    a<-addPolylines(map=a, data=out,lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
+    
+    # if(out$idmortalitystatus[nrow(out)] == "5"){
+    #   #add mortality markers
+    #   a<-addMarkers(map=a, data=out[nrow(out),],lng=~longitude, lat=~latitude,label=~Label, popup=~Popup, icon=icon.mortality)
+    # }
+    
+    #add active/inactive/mort icons ---- inactive defined as no iridium uplink in last 2 days
+    
+    if(out$tdate[nrow(out)] <= Sys.time() - as.difftime(2, unit= "days")){ #if its inactive
+      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
+                           label=out$AID,
+                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
+                           popup=~Popup, icon=icon.inactive)
+    }
+    
+    if(out$tdate[nrow(out)] >= Sys.time() - as.difftime(2, unit = "days")) { #make it active
+      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
+                           label= out$AID,
+                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
+                           popup=~Popup, icon=icon.active)
+    }
+  }
+  
+}
+
+#add mortality locations
+#a<-addCircleMarkers(map=a,data=elk2,lng=~longitude, lat=~latitude,popup=~popup, col="red", radius=1.5, opacity=100)
+
+#add layer control
+# Take out ESRI provided tiles
+esri <- providers %>%
+  purrr::keep(~ grepl('^Esri',.))
+#remove a bunch of worthless esri layers
+esri[[11]]<-NULL
+esri[[9]]<-NULL
+esri[[8]]<-NULL
+esri[[7]]<-NULL
+esri[[6]]<-NULL
+esri[[2]]<-NULL
+#reorder list so desired list is on top of legend and as primary basemap
+esri <- esri[c("Esri.DeLorme", "Esri.WorldImagery", "Esri.WorldTopoMap","Esri.NatGeoWorldMap", "Esri")]
+esri %>%
+  purrr::walk(function(x) a <<- a %>% addProviderTiles(x,group=x))
+a<-a %>%
+  addLayersControl(
+    baseGroups = names(esri),
+    options = layersControlOptions(collapsed = TRUE)) %>%
+  addLegend(pal = pal, values = sheepmap$AID, group = "sheepmap", opacity=100, position = "bottomleft")
+#a #plot
+
+#a<- a%>% addTitle(text=paste('Updated:', Sys.time()), color= "black", fontSize= "18px", leftPosition = 50, topPosition=2)
+# 
+
+
+
+htmlwidgets::saveWidget(a, file=paste(savedir, 'Last3Days.html', sep = ""),
+                        title="SheepMovement", selfcontained=TRUE)
+
+
+rm(a)
+
+
+
+
+
+
+
+
+
+
+
+
+
+sheepmap<-gpsdat[gpsdat$tdate>= Sys.time()-lubridate::hours(12),]
+sheepmap<-sheepmap[complete.cases(sheepmap$x),]
+uni<-unique(sheepmap$AID)
+sheepmap$popup<-paste0(signif(sheepmap$y, digits = 6), ",", signif(sheepmap$x, digits = 7))
+for(n in 1:length(uni)){
+  out<-sheepmap[sheepmap$AID == uni[n],]
+  out<-out[order(out$tdate, decreasing = FALSE),]
+  
+  if(nrow(out)>0){
+    f_name<-out$AID[1] #create unique filename
+    
+    #set up leaflet options
+    out$Label<-NA
+    out$Label<-as.character(out$popup) #Create hover over layer
+    out$Popup<-NA
+    out$Popup<-f_name #Create hover over layer
+    if(exists("a")==FALSE){ #build leaflet with first animal
+      a<-out %>%
+        leaflet() %>%
+        #addTiles() %>%
+        #addProviderTiles("Esri.WorldImagery") %>%
+        addProviderTiles(providers$Esri.NatGeoWorldMap) %>%  #choose base layer
+        addCircleMarkers(lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100) %>% #add as circles
+        addPolylines(lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
+    }
+    
+    
+    a<-addCircleMarkers(map=a,data=out,lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100)
+    a<-addPolylines(map=a, data=out,lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
+    
+    # if(out$idmortalitystatus[nrow(out)] == "5"){
+    #   #add mortality markers
+    #   a<-addMarkers(map=a, data=out[nrow(out),],lng=~longitude, lat=~latitude,label=~Label, popup=~Popup, icon=icon.mortality)
+    # }
+    
+    #add active/inactive/mort icons ---- inactive defined as no iridium uplink in last 2 days
+    
+    if(out$tdate[nrow(out)] <= Sys.time() - as.difftime(2, unit= "days")){ #if its inactive
+      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
+                           label=out$AID,
+                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
+                           popup=~Popup, icon=icon.inactive)
+    }
+    
+    if(out$tdate[nrow(out)] >= Sys.time() - as.difftime(2, unit = "days")) { #make it active
+      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
+                           label= out$AID,
+                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
+                           popup=~Popup, icon=icon.active)
+    }
+  }
+  
+}
+
+#add mortality locations
+#a<-addCircleMarkers(map=a,data=elk2,lng=~longitude, lat=~latitude,popup=~popup, col="red", radius=1.5, opacity=100)
+
+#add layer control
+# Take out ESRI provided tiles
+esri <- providers %>%
+  purrr::keep(~ grepl('^Esri',.))
+#remove a bunch of worthless esri layers
+esri[[11]]<-NULL
+esri[[9]]<-NULL
+esri[[8]]<-NULL
+esri[[7]]<-NULL
+esri[[6]]<-NULL
+esri[[2]]<-NULL
+#reorder list so desired list is on top of legend and as primary basemap
+esri <- esri[c("Esri.DeLorme", "Esri.WorldImagery", "Esri.WorldTopoMap","Esri.NatGeoWorldMap", "Esri")]
+esri %>%
+  purrr::walk(function(x) a <<- a %>% addProviderTiles(x,group=x))
+a<-a %>%
+  addLayersControl(
+    baseGroups = names(esri),
+    options = layersControlOptions(collapsed = TRUE)) %>%
+  addLegend(pal = pal, values = sheepmap$AID, group = "sheepmap", opacity=100, position = "bottomleft")
+#a #plot
+
+#a<- a%>% addTitle(text=paste('Updated:', Sys.time()), color= "black", fontSize= "18px", leftPosition = 50, topPosition=2)
+# 
+
+
+
+htmlwidgets::saveWidget(a, file=paste(savedir, 'Last12Hours.html', sep = ""),
+                        title="SheepMovement", selfcontained=TRUE)
+
+
+rm(a)
+
+#attachments. This is going to include the ParturitionMetrics PDF and html files if you want them to send as well.
+attach = c(paste0(tempdir, "/Products/Last3Days.html"),paste0(tempdir, "/Products/Last12Hours.html"), paste0(tempdir, "/Products/LatestLocs.kml"))
+
+from = 'katey.huggler@gmx.com'
+to = 'katey.huggler@gmx.com'
+user = 'katey.huggler@gmx.com'
+pass = "Kateyh1957!"
+mailR::send.mail(from = from,
+                 to = to,
+                 subject = "Remaining sheep for Fall 2024 surveys",
+                 body = "This email contains locations for sheep that have not been observed during Fall 2024 surveys",
+                 authenticate = TRUE,
+                 smtp = list(host.name = "mail.gmx.com", port = 587, user.name = user, passwd = pass, tls = T), attach.files = attach)
 
 
 

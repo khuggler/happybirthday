@@ -16,7 +16,9 @@
 #' @export 
 makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
   
- data(rf, package = "happybirthday")
+  if(spp == "BHS"){
+ data(BHS_OneHour, package = "happybirthday")
+  }
   
   plotdir<-paste0(tempdir, "/", "Plots")
   if(dir.exists(plotdir)){
@@ -56,7 +58,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       plot(sub$t_, sub$moverate_kmhr, type = "l", ylab = "Movement rate (km/hr)",
            xlab = "Date", main = "Movement Rate", cex = 1.25)
       
-      tdiff<-round(48/max(sub$timediff, na.rm = T))
+      tdiff<-round(24/max(sub$timediff, na.rm = T))
       if(nrow(sub)>tdiff){
         mm <- quantile(sub[(nrow(sub) - tdiff):(nrow(sub)),]$moverate_kmhr,
                        probs = 0.75, na.rm = T)
@@ -67,7 +69,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       }
      
       
-      lines(sub$t_, sub$mr48_mean, col = "red") # rolling quantile
+      lines(sub$t_, sub$mr24_mean, col = "red") # rolling quantile
       abline(h = mm, col = "blue", lty = 2)
       
       
@@ -79,7 +81,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       plot(sub$t_, sub$HR, type = "l", ylab = y1,
            xlab = "Date", main = paste0("Home Range Size (", sub$Increment[1], ")"), cex = 1.25)
       
-      tdiff<-round(48/max(sub$timediff, na.rm = T))
+      tdiff<-round(24/max(sub$timediff, na.rm = T))
       if(nrow(sub)>tdiff){
         mm <- quantile(sub[(nrow(sub) - tdiff):(nrow(sub)),]$HR,
                        probs = 0.75, na.rm = T)
@@ -90,7 +92,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       }
       
       
-      lines(sub$t_, sub$hr48_mean, col = "red") # rolling quantile
+      lines(sub$t_, sub$hr24_mean, col = "red") # rolling quantile
       abline(h = mm, col = "blue", lty = 2)
       
       
@@ -101,7 +103,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       plot(sub$t_, sub$RT_100, type = "l", ylab = "Residence time (hours)",
            xlab = "Date", main = "Residence time at 100 meters", cex = 1.25)
       
-      tdiff<-round(48/max(sub$timediff, na.rm = T))
+      tdiff<-round(24/max(sub$timediff, na.rm = T))
       if(nrow(sub)>tdiff){
         mm <- quantile(sub[(nrow(sub) - tdiff):(nrow(sub)),]$RT_100,
                        probs = 0.75, na.rm = T)
@@ -112,7 +114,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       }
       
       
-      lines(sub$t_, sub$rt48_mean_100, col = "red") # rolling quantile
+      lines(sub$t_, sub$rt24_mean_100, col = "red") # rolling quantile
       abline(h = mm, col = "blue", lty = 2)
       
       
@@ -120,7 +122,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       plot(sub$t_, sub$RT_500, type = "l", ylab = "Residence time (hours)",
            xlab = "Date", main = "Residence time at 500 meters", cex = 1.25)
       
-      tdiff<-round(48/max(sub$timediff, na.rm = T))
+      tdiff<-round(24/max(sub$timediff, na.rm = T))
       if(nrow(sub)>tdiff){
         mm <- quantile(sub[(nrow(sub) - tdiff):(nrow(sub)),]$RT_500,
                        probs = 0.75, na.rm = T)
@@ -131,7 +133,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       }
       
       
-      lines(sub$t_, sub$rt48_mean_500, col = "red") # rolling quantile
+      lines(sub$t_, sub$rt24_mean_500, col = "red") # rolling quantile
       abline(h = mm, col = "blue", lty = 2)
       
       
@@ -143,7 +145,7 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       plot(sub$t_, sub$Vis_100, type = "l", ylab = "Number of visits (100 meters)",
            xlab = "Date", main = "Number of visits", cex = 1.25)
       
-      tdiff<-round(48/max(sub$timediff, na.rm = T))
+      tdiff<-round(24/max(sub$timediff, na.rm = T))
       if(nrow(sub)>tdiff){
         mm <- quantile(sub[(nrow(sub) - tdiff):(nrow(sub)),]$Vis_100,
                        probs = 0.75, na.rm = T)
@@ -154,13 +156,56 @@ makeMarkdown<-function(id_df, rollmean, subsetmonth, tempdir){
       }
       
       
-      lines(sub$t_, sub$vis48_mean_100, col = "red") # rolling quantile
+      lines(sub$t_, sub$vis24_mean_100, col = "red") # rolling quantile
       abline(h = mm, col = "blue", lty = 2)
       
       
    
-    sub$PredictedProbability<-as.numeric(randomForest:::predict.randomForest(rf,sub,type='prob')[,1])
-    thresh<-1-0.018
+      # here need to pick the correct RF model 
+      
+    sub$pred_prob<-as.numeric(randomForest:::predict.randomForest(rf,sub,type='prob')[,1])
+    
+    # here need to input the right threshold
+    
+    #thresh<-1-0.018
+    
+    # here need to input the right sliding window 
+    #slw<-round(24/6)
+    
+    sub[,"MeanThreshold"] <- as.vector(rollapply(zoo(sub[,"pred_prob"]), slw, function(x){mean(sum(as.numeric(x > thresh), na.rm=T), na.rm=T)}, fill=NA))/as.vector(rollapply(zoo(sub[,"pred_prob"]), slw, function(x){length(x[!is.na(x)])}, fill=NA))
+    
+    # here need to input the simulrf--sup_fn
+    toto<-rle(as.vector(as.numeric(sub[,"MeanThreshold"] > 0.257)))
+    
+    if(length(which(toto$values==1)) > 0){
+      
+      # end = the cumulative sum of lengths where values == 1. 
+      toto<-data.frame(end=cumsum(toto$lengths)[toto$values %in% "1"], duration=toto$lengths[toto$values %in% "1"])
+      toto$parturition_start<-sub$t_[toto$end - toto$duration + 1]
+      toto$parturition_end<-sub$t_[toto$end]
+      toto$duration<-as.vector(difftime(toto$parturition_end, toto$parturition_start, unit="hours"))
+      toto$id <- uni[i]
+      #toto$tw <- hrs[p]
+      toto<-toto[,c("id","parturition_start","parturition_end","duration")]
+      for(line in 1:nrow(toto)){
+        
+        #mean predicted probability above error rate between the parturution start and end
+        toto$prop[line] <- mean(sub[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line],"MeanThreshold"], na.rm = T)
+        # mean predicted probability raw
+        toto$propmb[line] <- mean(sub[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line],"pred_prob"], na.rm = T)
+        # max predicted probabiliyt between those two dates
+        toto$max[line] <- max(sub[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line],"pred_prob"], na.rm = T)
+        
+        # mean date between these two dates, but weighted by predicted probability
+        toto$weighted_date[line] <- as.character(weighted.mean(sub$t_[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line]], w=sub[sub$t_ >=toto$parturition_start[line] & sub$t_ <=toto$parturition_end[line],"pred_prob"],  na.rm=T))
+      }
+      toto <- toto[toto$max %in% max(toto$max),][1,]
+      tmp <- toto
+      respred[[paste(uni[i], hrs[p], sep="-")]] <- tmp
+    }
+  
+  
+    
     plot(sub$t_, sub$PredictedProbability, type = "l", ylab = "Probability of parturition",
          xlab = "Date", main = "Probability of Parturition", cex = 1.25, ylim = c(0, thresh))
     abline(h = thresh, col = "blue", lty = 2)
