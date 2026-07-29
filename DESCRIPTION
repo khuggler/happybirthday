@@ -32,6 +32,8 @@ Imports:
     rmarkdown,
     sp,
     zoo
+Remotes:
+    Huh/collar
 Depends: 
   R (>= 4.0)
 LazyData: true
