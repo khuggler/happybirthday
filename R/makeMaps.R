@@ -159,7 +159,7 @@ for(n in 1:length(uni)){
     out$Label<-as.character(out$popup) #Create hover over layer
     out$Popup<-NA
     out$Popup<-f_name #Create hover over layer
-    if(exists("a")==FALSE){ #build leaflet with first animal
+    if(!exists("a", envir = .GlobalEnv, inherits = FALSE)) { #build leaflet with first animal
       a<-out %>%
         leaflet() %>%
         #addTiles() %>%
@@ -261,7 +261,7 @@ for(n in 1:length(uni)){
     out$Label<-as.character(out$popup) #Create hover over layer
     out$Popup<-NA
     out$Popup<-f_name #Create hover over layer
-    if(exists("a")==FALSE){ #build leaflet with first animal
+    if(!exists("a", envir = .GlobalEnv, inherits = FALSE)) { #build leaflet with first animal
       a<-out %>%
         leaflet() %>%
         #addTiles() %>%
