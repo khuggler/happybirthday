@@ -36,6 +36,8 @@ makeMaps<-function(tempdir, gpsdat, id_df){
   
   
   
+  
+  
 uni<-unique(gpsdat$AID)
 
 lastpoint<-data.frame()
