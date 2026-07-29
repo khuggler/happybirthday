@@ -31,7 +31,6 @@ if(interactive()){
 }
 \seealso{
 \code{\link[assertthat]{assert_that}}
-\code{\link[sp]{coordinates}}, \code{\link[sp]{is.projected}}
 \code{\link[purrr]{keep}}, \code{\link[purrr]{map}}
 \code{\link[htmlwidgets]{saveWidget}}
 }
