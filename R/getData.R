@@ -3,10 +3,7 @@
 
 
 getData<-function(id_df, tempdir = NA, veckeys = NA, telonic_usrs = NA, telonic_pass = NA, ATS_usrs = NA, ATS_pass = NA, lotek_usrs = NA, lotek_pass = NA, tzone = 'America/Los_Angeles', subsetmonth = "02"){
-  
-  require(dplyr)
-  require(collar)
-  
+
   if(!dir.exists(tempdir)){
     dir.create(tempdir)
   }

@@ -22,9 +22,6 @@
 #' @importFrom htmlwidgets saveWidget
 makeMaps<-function(tempdir, gpsdat, id_df){
   
-  require(leaflet)
-  require(sf)
-
   savedir = paste0(tempdir, "/", 'Products/')
   if(!dir.exists(savedir)){
     dir.create(savedir)
