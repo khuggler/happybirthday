@@ -31,7 +31,9 @@ Imports:
     recurse,
     rmarkdown,
     sp,
-    zoo
+    zoo, 
+    randomForest, 
+    sf
 Remotes:
     Huh/collar
 Depends: 
