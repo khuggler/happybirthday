@@ -140,85 +140,118 @@ icon.inactive <- makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=
 # icon.mortality <- makeIcon("https://www.svgrepo.com/svg/404123/skull-and-crossbones",
 #                            iconWidth= 30, iconHeight= 30)
 
-
+a <- NULL
 
 sheepmap<-gpsdat[gpsdat$tdate>= Sys.time()-lubridate::days(3),]
 sheepmap<-sheepmap[complete.cases(sheepmap$x),]
 uni<-unique(sheepmap$AID)
 sheepmap$popup<-paste0(signif(sheepmap$y, digits = 6), ",", signif(sheepmap$x, digits = 7))
-for(n in 1:length(uni)){
-  out<-sheepmap[sheepmap$AID == uni[n],]
-  out<-out[order(out$tdate, decreasing = FALSE),]
+for(n in seq_along(uni)) {
   
-  if(nrow(out)>0){
-    f_name<-out$AID[1] #create unique filename
+  out <- sheepmap[sheepmap$AID == uni[n],]
+  out <- out[order(out$tdate, decreasing = FALSE),]
+  
+  if(nrow(out) > 0) {
     
-    #set up leaflet options
-    out$Label<-NA
-    out$Label<-as.character(out$popup) #Create hover over layer
-    out$Popup<-NA
-    out$Popup<-f_name #Create hover over layer
-    if(!exists("a", envir = .GlobalEnv, inherits = FALSE)) { #build leaflet with first animal
-      a<-out %>%
-        leaflet() %>%
-        #addTiles() %>%
-        #addProviderTiles("Esri.WorldImagery") %>%
-        addProviderTiles(providers$Esri.NatGeoWorldMap) %>%  #choose base layer
-        addCircleMarkers(lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100) %>% #add as circles
-        addPolylines(lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
-    }
+    f_name <- out$AID[1]
     
+    out$Label <- as.character(out$popup)
+    out$Popup <- f_name
     
-    a<-addCircleMarkers(map=a,data=out,lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100)
-    a<-addPolylines(map=a, data=out,lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
-    
-    # if(out$idmortalitystatus[nrow(out)] == "5"){
-    #   #add mortality markers
-    #   a<-addMarkers(map=a, data=out[nrow(out),],lng=~longitude, lat=~latitude,label=~Label, popup=~Popup, icon=icon.mortality)
-    # }
-    
-    #add active/inactive/mort icons ---- inactive defined as no iridium uplink in last 2 days
-    
-    if(out$tdate[nrow(out)] <= Sys.time() - as.difftime(2, unit= "days")){ #if its inactive
-      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
-                           label=out$AID,
-                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
-                           popup=~Popup, icon=icon.inactive)
-    }
-    
-    if(out$tdate[nrow(out)] >= Sys.time() - as.difftime(2, unit = "days")) { #make it active
-      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
-                           label= out$AID,
-                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
-                           popup=~Popup, icon=icon.active)
+    if(is.null(a)) {
+      
+      a <- leaflet::leaflet(out) |>
+        leaflet::addProviderTiles(
+          leaflet::providers$Esri.NatGeoWorldMap
+        ) |>
+        leaflet::addCircleMarkers(
+          lng = ~x,
+          lat = ~y,
+          label = ~Label,
+          popup = ~Popup,
+          color = ~pal(AID),
+          radius = 1.5,
+          opacity = 1
+        ) |>
+        leaflet::addPolylines(
+          lng = ~x,
+          lat = ~y,
+          weight = 0.5,
+          color = "black",
+          opacity = 1
+        )
+      
+    } else {
+      
+      a <- leaflet::addCircleMarkers(
+        map = a,
+        data = out,
+        lng = ~x,
+        lat = ~y,
+        label = ~Label,
+        popup = ~Popup,
+        color = ~pal(AID),
+        radius = 1.5,
+        opacity = 1
+      )
+      
+      a <- leaflet::addPolylines(
+        map = a,
+        data = out,
+        lng = ~x,
+        lat = ~y,
+        weight = 0.5,
+        color = "black",
+        opacity = 1
+      )
     }
   }
-  
 }
-
 #add mortality locations
 #a<-addCircleMarkers(map=a,data=elk2,lng=~longitude, lat=~latitude,popup=~popup, col="red", radius=1.5, opacity=100)
 
 #add layer control
 # Take out ESRI provided tiles
-esri <- providers %>%
-  purrr::keep(~ grepl('^Esri',.))
-#remove a bunch of worthless esri layers
-esri[[11]]<-NULL
-esri[[9]]<-NULL
-esri[[8]]<-NULL
-esri[[7]]<-NULL
-esri[[6]]<-NULL
-esri[[2]]<-NULL
-#reorder list so desired list is on top of legend and as primary basemap
-esri <- esri[c("Esri.DeLorme", "Esri.WorldImagery", "Esri.WorldTopoMap","Esri.NatGeoWorldMap", "Esri")]
-esri %>%
-  purrr::walk(function(x) a <<- a %>% addProviderTiles(x,group=x))
-a<-a %>%
-  addLayersControl(
-    baseGroups = names(esri),
-    options = layersControlOptions(collapsed = TRUE)) %>%
-  addLegend(pal = pal, values = sheepmap$AID, group = "sheepmap", opacity=100, position = "bottomleft")
+esri <- leaflet::providers |>
+  purrr::keep(\(x) grepl("^Esri", x))
+
+esri[[11]] <- NULL
+esri[[9]]  <- NULL
+esri[[8]]  <- NULL
+esri[[7]]  <- NULL
+esri[[6]]  <- NULL
+esri[[2]]  <- NULL
+
+esri <- esri[c(
+  "Esri.DeLorme",
+  "Esri.WorldImagery",
+  "Esri.WorldTopoMap",
+  "Esri.NatGeoWorldMap",
+  "Esri"
+)]
+
+for (x in esri) {
+  a <- leaflet::addProviderTiles(
+    map = a,
+    provider = x,
+    group = x
+  )
+}
+
+a <- leaflet::addLayersControl(
+  map = a,
+  baseGroups = names(esri),
+  options = leaflet::layersControlOptions(collapsed = TRUE)
+)
+
+a <- leaflet::addLegend(
+  map = a,
+  pal = pal,
+  values = sheepmap$AID,
+  group = "sheepmap",
+  opacity = 1,
+  position = "bottomleft"
+)
 #a #plot
 
 #a<- a%>% addTitle(text=paste('Updated:', Sys.time()), color= "black", fontSize= "18px", leftPosition = 50, topPosition=2)
@@ -242,86 +275,118 @@ rm(a)
 
 
 
-
+a<-NULL
 
 sheepmap<-gpsdat[gpsdat$tdate>= Sys.time()-lubridate::hours(12),]
 sheepmap<-sheepmap[complete.cases(sheepmap$x),]
 uni<-unique(sheepmap$AID)
 sheepmap$popup<-paste0(signif(sheepmap$y, digits = 6), ",", signif(sheepmap$x, digits = 7))
-for(n in 1:length(uni)){
-  out<-sheepmap[sheepmap$AID == uni[n],]
-  out<-out[order(out$tdate, decreasing = FALSE),]
+for(n in seq_along(uni)) {
   
-  if(nrow(out)>0){
-    f_name<-out$AID[1] #create unique filename
+  out <- sheepmap[sheepmap$AID == uni[n],]
+  out <- out[order(out$tdate, decreasing = FALSE),]
+  
+  if(nrow(out) > 0) {
     
-    #set up leaflet options
-    out$Label<-NA
-    out$Label<-as.character(out$popup) #Create hover over layer
-    out$Popup<-NA
-    out$Popup<-f_name #Create hover over layer
-    if(!exists("a", envir = .GlobalEnv, inherits = FALSE)) { #build leaflet with first animal
-      a<-out %>%
-        leaflet() %>%
-        #addTiles() %>%
-        #addProviderTiles("Esri.WorldImagery") %>%
-        addProviderTiles(providers$Esri.NatGeoWorldMap) %>%  #choose base layer
-        addCircleMarkers(lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100) %>% #add as circles
-        addPolylines(lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
-    }
+    f_name <- out$AID[1]
     
+    out$Label <- as.character(out$popup)
+    out$Popup <- f_name
     
-    a<-addCircleMarkers(map=a,data=out,lng=~x, lat=~y, label=~Label, popup=~Popup,color=~pal(AID), radius=1.5, opacity=100)
-    a<-addPolylines(map=a, data=out,lng=~x, lat=~y, weight=0.5, color="black", opacity=200)
-    
-    # if(out$idmortalitystatus[nrow(out)] == "5"){
-    #   #add mortality markers
-    #   a<-addMarkers(map=a, data=out[nrow(out),],lng=~longitude, lat=~latitude,label=~Label, popup=~Popup, icon=icon.mortality)
-    # }
-    
-    #add active/inactive/mort icons ---- inactive defined as no iridium uplink in last 2 days
-    
-    if(out$tdate[nrow(out)] <= Sys.time() - as.difftime(2, unit= "days")){ #if its inactive
-      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
-                           label=out$AID,
-                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
-                           popup=~Popup, icon=icon.inactive)
-    }
-    
-    if(out$tdate[nrow(out)] >= Sys.time() - as.difftime(2, unit = "days")) { #make it active
-      a<-addAwesomeMarkers(map=a, data=out[nrow(out),],lng=~x, lat=~y,
-                           label= out$AID,
-                           labelOptions= labelOptions(noHide=T, textOnly = T, style=list("font-style" = "bold", "font-size"="15px")),
-                           popup=~Popup, icon=icon.active)
+    if(is.null(a)) {
+      
+      a <- leaflet::leaflet(out) |>
+        leaflet::addProviderTiles(
+          leaflet::providers$Esri.NatGeoWorldMap
+        ) |>
+        leaflet::addCircleMarkers(
+          lng = ~x,
+          lat = ~y,
+          label = ~Label,
+          popup = ~Popup,
+          color = ~pal(AID),
+          radius = 1.5,
+          opacity = 1
+        ) |>
+        leaflet::addPolylines(
+          lng = ~x,
+          lat = ~y,
+          weight = 0.5,
+          color = "black",
+          opacity = 1
+        )
+      
+    } else {
+      
+      a <- leaflet::addCircleMarkers(
+        map = a,
+        data = out,
+        lng = ~x,
+        lat = ~y,
+        label = ~Label,
+        popup = ~Popup,
+        color = ~pal(AID),
+        radius = 1.5,
+        opacity = 1
+      )
+      
+      a <- leaflet::addPolylines(
+        map = a,
+        data = out,
+        lng = ~x,
+        lat = ~y,
+        weight = 0.5,
+        color = "black",
+        opacity = 1
+      )
     }
   }
-  
 }
-
 #add mortality locations
 #a<-addCircleMarkers(map=a,data=elk2,lng=~longitude, lat=~latitude,popup=~popup, col="red", radius=1.5, opacity=100)
 
 #add layer control
 # Take out ESRI provided tiles
-esri <- providers %>%
-  purrr::keep(~ grepl('^Esri',.))
-#remove a bunch of worthless esri layers
-esri[[11]]<-NULL
-esri[[9]]<-NULL
-esri[[8]]<-NULL
-esri[[7]]<-NULL
-esri[[6]]<-NULL
-esri[[2]]<-NULL
-#reorder list so desired list is on top of legend and as primary basemap
-esri <- esri[c("Esri.DeLorme", "Esri.WorldImagery", "Esri.WorldTopoMap","Esri.NatGeoWorldMap", "Esri")]
-esri %>%
-  purrr::walk(function(x) a <<- a %>% addProviderTiles(x,group=x))
-a<-a %>%
-  addLayersControl(
-    baseGroups = names(esri),
-    options = layersControlOptions(collapsed = TRUE)) %>%
-  addLegend(pal = pal, values = sheepmap$AID, group = "sheepmap", opacity=100, position = "bottomleft")
-#a #plot
+esri <- leaflet::providers |>
+  purrr::keep(\(x) grepl("^Esri", x))
+
+esri[[11]] <- NULL
+esri[[9]]  <- NULL
+esri[[8]]  <- NULL
+esri[[7]]  <- NULL
+esri[[6]]  <- NULL
+esri[[2]]  <- NULL
+
+esri <- esri[c(
+  "Esri.DeLorme",
+  "Esri.WorldImagery",
+  "Esri.WorldTopoMap",
+  "Esri.NatGeoWorldMap",
+  "Esri"
+)]
+
+for (x in esri) {
+  a <- leaflet::addProviderTiles(
+    map = a,
+    provider = x,
+    group = x
+  )
+}
+
+a <- leaflet::addLayersControl(
+  map = a,
+  baseGroups = names(esri),
+  options = leaflet::layersControlOptions(collapsed = TRUE)
+)
+
+a <- leaflet::addLegend(
+  map = a,
+  pal = pal,
+  values = sheepmap$AID,
+  group = "sheepmap",
+  opacity = 1,
+  position = "bottomleft"
+)
 
 #a<- a%>% addTitle(text=paste('Updated:', Sys.time()), color= "black", fontSize= "18px", leftPosition = 50, topPosition=2)
 # 
