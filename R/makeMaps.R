@@ -130,10 +130,10 @@ sf::st_write(lastpoint,paste(savedir,'LatestLocs.kml',sep=''),layer='locs',drive
 pal <- leaflet::colorFactor(palette = 'Paired',domain = gpsdat$AID)
 
 #create custom icons for most recent locations
-icon.active <- makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=TRUE,
+icon.active <- leaflet::makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=TRUE,
                                iconColor = "black", library = "fa",
                                squareMarker =  FALSE)
-icon.inactive <- makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=FALSE,
+icon.inactive <- leaflet::makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=FALSE,
                                  iconColor = "black", library = "fa",
                                  squareMarker =  FALSE)
 
@@ -142,99 +142,84 @@ icon.inactive <- makeAwesomeIcon(icon = "star", markerColor = "lightgray", spin=
 
 a <- NULL
 
-sheepmap<-gpsdat[gpsdat$tdate>= Sys.time()-lubridate::days(3),]
-sheepmap<-sheepmap[complete.cases(sheepmap$x),]
-uni<-unique(sheepmap$AID)
-sheepmap$popup<-paste0(signif(sheepmap$y, digits = 6), ",", signif(sheepmap$x, digits = 7))
-for(n in seq_along(uni)) {
+sheepmap <- gpsdat[
+  gpsdat$tdate >= Sys.time() - lubridate::days(3),
+]
+
+sheepmap <- sheepmap[
+  stats::complete.cases(sheepmap$x, sheepmap$y),
+]
+
+uni <- unique(sheepmap$AID)
+
+sheepmap$popup <- paste0(
+  signif(sheepmap$y, digits = 6),
+  ",",
+  signif(sheepmap$x, digits = 7)
+)
+
+for (n in seq_along(uni)) {
   
-  out <- sheepmap[sheepmap$AID == uni[n],]
-  out <- out[order(out$tdate, decreasing = FALSE),]
+  out <- sheepmap[sheepmap$AID == uni[n], ]
+  out <- out[order(out$tdate), ]
   
-  if(nrow(out) > 0) {
+  if (nrow(out) == 0)
+    next
+  
+  f_name <- as.character(out$AID[1])
+  
+  out$Label <- as.character(out$popup)
+  out$Popup <- f_name
+  
+  if (is.null(a)) {
     
-    f_name <- out$AID[1]
+    a <- leaflet::leaflet()
     
-    out$Label <- as.character(out$popup)
-    out$Popup <- f_name
-    
-    if(is.null(a)) {
-      
-      a <- leaflet::leaflet(out) |>
-        leaflet::addProviderTiles(
-          leaflet::providers$Esri.NatGeoWorldMap
-        ) |>
-        leaflet::addCircleMarkers(
-          lng = ~x,
-          lat = ~y,
-          label = ~Label,
-          popup = ~Popup,
-          color = ~pal(AID),
-          radius = 1.5,
-          opacity = 1
-        ) |>
-        leaflet::addPolylines(
-          lng = ~x,
-          lat = ~y,
-          weight = 0.5,
-          color = "black",
-          opacity = 1
-        )
-      
-    }else{
-      
-      a <- leaflet::addCircleMarkers(
-        map = a,
-        data = out,
-        lng = ~x,
-        lat = ~y,
-        label = ~Label,
-        popup = ~Popup,
-        color = ~pal(AID),
-        radius = 1.5,
-        opacity = 1
-      )
-      
-      a <- leaflet::addPolylines(
-        map = a,
-        data = out,
-        lng = ~x,
-        lat = ~y,
-        weight = 0.5,
-        color = "black",
-        opacity = 1
-      )
-    }
+    a <- leaflet::addProviderTiles(
+      map = a,
+      provider = leaflet::providers$Esri.NatGeoWorldMap
+    )
   }
+  
+  a <- leaflet::addCircleMarkers(
+    map = a,
+    lng = out$x,
+    lat = out$y,
+    label = out$Label,
+    popup = out$Popup,
+    color = pal(out$AID),
+    radius = 1.5,
+    opacity = 1
+  )
+  
+  a <- leaflet::addPolylines(
+    map = a,
+    lng = out$x,
+    lat = out$y,
+    weight = 0.5,
+    color = "black",
+    opacity = 1
+  )
 }
+
 #add mortality locations
 #a<-addCircleMarkers(map=a,data=elk2,lng=~longitude, lat=~latitude,popup=~popup, col="red", radius=1.5, opacity=100)
 
 #add layer control
 # Take out ESRI provided tiles
-esri <- leaflet::providers |>
-  purrr::keep(\(x) grepl("^Esri", x))
-
-esri[[11]] <- NULL
-esri[[9]]  <- NULL
-esri[[8]]  <- NULL
-esri[[7]]  <- NULL
-esri[[6]]  <- NULL
-esri[[2]]  <- NULL
-
-esri <- esri[c(
+esri <- leaflet::providers[c(
   "Esri.DeLorme",
   "Esri.WorldImagery",
   "Esri.WorldTopoMap",
-  "Esri.NatGeoWorldMap",
-  "Esri"
+  "Esri.NatGeoWorldMap"
 )]
 
-for (x in esri) {
+for (nm in names(esri)) {
+  
   a <- leaflet::addProviderTiles(
     map = a,
-    provider = x,
-    group = x
+    provider = esri[[nm]],
+    group = nm
   )
 }
 
@@ -275,101 +260,88 @@ rm(a)
 
 
 
-a<-NULL
+a <- NULL
 
-sheepmap<-gpsdat[gpsdat$tdate>= Sys.time()-lubridate::hours(12),]
-sheepmap<-sheepmap[complete.cases(sheepmap$x),]
-uni<-unique(sheepmap$AID)
-sheepmap$popup<-paste0(signif(sheepmap$y, digits = 6), ",", signif(sheepmap$x, digits = 7))
-for(n in seq_along(uni)) {
+sheepmap <- gpsdat[
+  gpsdat$tdate >= Sys.time() - lubridate::hours(12),
+]
+
+sheepmap <- sheepmap[
+  stats::complete.cases(sheepmap$x, sheepmap$y),
+]
+
+uni <- unique(sheepmap$AID)
+
+sheepmap$popup <- paste0(
+  signif(sheepmap$y, digits = 6),
+  ",",
+  signif(sheepmap$x, digits = 7)
+)
+
+for (n in seq_along(uni)) {
   
-  out <- sheepmap[sheepmap$AID == uni[n],]
-  out <- out[order(out$tdate, decreasing = FALSE),]
+  out <- sheepmap[sheepmap$AID == uni[n], ]
+  out <- out[order(out$tdate), ]
   
-  if(nrow(out) > 0) {
+  if (nrow(out) == 0)
+    next
+  
+  f_name <- as.character(out$AID[1])
+  
+  out$Label <- as.character(out$popup)
+  out$Popup <- f_name
+  
+  if (is.null(a)) {
     
-    f_name <- out$AID[1]
+    a <- leaflet::leaflet()
     
-    out$Label <- as.character(out$popup)
-    out$Popup <- f_name
-    
-    if(is.null(a)) {
-      
-      a <- leaflet::leaflet(out) |>
-        leaflet::addProviderTiles(
-          leaflet::providers$Esri.NatGeoWorldMap
-        ) |>
-        leaflet::addCircleMarkers(
-          lng = ~x,
-          lat = ~y,
-          label = ~Label,
-          popup = ~Popup,
-          color = ~pal(AID),
-          radius = 1.5,
-          opacity = 1
-        ) |>
-        leaflet::addPolylines(
-          lng = ~x,
-          lat = ~y,
-          weight = 0.5,
-          color = "black",
-          opacity = 1
-        )
-      
-    }else{
-      
-      a <- leaflet::addCircleMarkers(
-        map = a,
-        data = out,
-        lng = ~x,
-        lat = ~y,
-        label = ~Label,
-        popup = ~Popup,
-        color = ~pal(AID),
-        radius = 1.5,
-        opacity = 1
-      )
-      
-      a <- leaflet::addPolylines(
-        map = a,
-        data = out,
-        lng = ~x,
-        lat = ~y,
-        weight = 0.5,
-        color = "black",
-        opacity = 1
-      )
-    }
+    a <- leaflet::addProviderTiles(
+      map = a,
+      provider = leaflet::providers$Esri.NatGeoWorldMap
+    )
   }
+  
+  a <- leaflet::addCircleMarkers(
+    map = a,
+    lng = out$x,
+    lat = out$y,
+    label = out$Label,
+    popup = out$Popup,
+    color = pal(out$AID),
+    radius = 1.5,
+    opacity = 1
+  )
+  
+  a <- leaflet::addPolylines(
+    map = a,
+    lng = out$x,
+    lat = out$y,
+    weight = 0.5,
+    color = "black",
+    opacity = 1
+  )
 }
 #add mortality locations
 #a<-addCircleMarkers(map=a,data=elk2,lng=~longitude, lat=~latitude,popup=~popup, col="red", radius=1.5, opacity=100)
 
 #add layer control
 # Take out ESRI provided tiles
-esri <- leaflet::providers |>
-  purrr::keep(\(x) grepl("^Esri", x))
 
-esri[[11]] <- NULL
-esri[[9]]  <- NULL
-esri[[8]]  <- NULL
-esri[[7]]  <- NULL
-esri[[6]]  <- NULL
-esri[[2]]  <- NULL
-
-esri <- esri[c(
+#add layer control
+# Take out ESRI provided tiles
+esri <- leaflet::providers[c(
   "Esri.DeLorme",
   "Esri.WorldImagery",
   "Esri.WorldTopoMap",
-  "Esri.NatGeoWorldMap",
-  "Esri"
+  "Esri.NatGeoWorldMap"
 )]
 
-for (x in esri) {
+for (nm in names(esri)) {
+  
   a <- leaflet::addProviderTiles(
     map = a,
-    provider = x,
-    group = x
+    provider = esri[[nm]],
+    group = nm
   )
 }
 
