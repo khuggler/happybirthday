@@ -110,8 +110,8 @@ if('Telonics' %in% mans){
     
     tel<-data.frame(fixes)
     
-    tel <- tel %>%
-      rename(tdate = "GPS.Fix.Time", x = "GPS.Longitude", y = "GPS.Latitude", SN = "CollarSerialNumber") %>%
+    tel <- tel |>
+      dplyr::rename(tdate = "GPS.Fix.Time", x = "GPS.Longitude", y = "GPS.Latitude", SN = "CollarSerialNumber") |>
       dplyr::select(SN, tdate, x, y)
     
     full.tel<-rbind(tel, full.tel)
@@ -159,8 +159,8 @@ if('Telonics' %in% mans){
     out.acct$Minute = formatC(out.acct$Minute, width = 2, format = "d", flag = "0")
     
     
-    ats <- out.acct %>%
-      rename(tdate = "DateLocal", SN = 'CollarSerialNumber', x = 'Longitude', y = 'Latitude') %>%
+    ats <- out.acct |>
+      dplyr::rename(tdate = "DateLocal", SN = 'CollarSerialNumber', x = 'Longitude', y = 'Latitude') |>
       dplyr::select(SN, tdate, x, y)
     ats<-data.frame(ats)
     
@@ -202,8 +202,8 @@ if('Telonics' %in% mans){
       
     
       
-      lotek <- out.acct %>%
-        rename(tdate = "UploadTimeStamp", SN = 'DeviceID', x = 'Longitude', y = 'Latitude') %>%
+      lotek <- out.acct |>
+        dplyr::rename(tdate = "UploadTimeStamp", SN = 'DeviceID', x = 'Longitude', y = 'Latitude') |>
         dplyr::select(SN, tdate, x, y)
       lotek<-data.frame(lotek)
       
@@ -229,8 +229,8 @@ if('Telonics' %in% mans){
     key_path <- collar::get_paths(veckeys)
     vecdat<-collar::fetch_vectronics(key_path, type = "gps")
     
-    vec <- vecdat %>%
-      rename(tdate = "acquisitiontime", SN = 'idcollar', x = 'longitude', y = 'latitude') %>%
+    vec <- vecdat |>
+      dplyr::rename(tdate = "acquisitiontime", SN = 'idcollar', x = 'longitude', y = 'latitude') |>
       dplyr::select(SN, tdate, x, y)
     
     vec$tdate <-as.POSIXct(vec$tdate,
