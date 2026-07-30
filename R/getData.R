@@ -1,3 +1,18 @@
+#' @title getData
+#' @description pulls data for all target animals
+#' @param id_df lookup table 
+#' @param tempdir temporary directory for storing data
+#' @param veckeys path to vectronic keys
+#' @param telonic_usrs vector of telonic usernames
+#' @param telonic_pass vector of telonic passwords
+#' @param ATS_usrs vector of ATS usernames
+#' @param ATS_pass vector of ATS passwords
+#' @param lotek_usrs vector of Lotek usernames
+#' @param lotek_pass vector of Lotek passwords
+#' @param tzone timezone of interest
+#' @param subsetmonth month to subset GPS data
+#' @param id_df lookup table of animal IDs and serial numbers
+#' @return Does not return any values. This function will save maps of the most recent locations in KML and GPS locations as well as the last three days of locations and movement in a leaflet map
 #' @importFrom collar ats_login fetch_ats_positions ats_logout get_paths fetch_vectronics
 #' @importFrom dplyr bind_rows
 
@@ -224,6 +239,8 @@ if('Telonics' %in% mans){
     vec<-data.frame(vec)
     
     vec$tdate<-lubridate::with_tz(vec$tdate, tzone = tzone)
+    
+    
   }
  
   # bind all the data together 
