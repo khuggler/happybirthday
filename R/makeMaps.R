@@ -181,14 +181,7 @@ for(n in seq_along(uni)) {
           opacity = 1
         )
       
-    }
-    
-    cat("\nITERATION:", n, "\n")
-    cat("class(a):", paste(class(a), collapse = ", "), "\n")
-    cat("typeof(a):", typeof(a), "\n")
-    cat("inherits leaflet:", inherits(a, "leaflet"), "\n")   
-    
-    else{
+    }else{
       
       a <- leaflet::addCircleMarkers(
         map = a,
