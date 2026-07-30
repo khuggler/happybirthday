@@ -15,6 +15,7 @@
 #' @return Does not return any values. This function will save maps of the most recent locations in KML and GPS locations as well as the last three days of locations and movement in a leaflet map
 #' @importFrom collar ats_login fetch_ats_positions ats_logout get_paths fetch_vectronics
 #' @importFrom dplyr bind_rows
+#' @export
 
 
 getData<-function(id_df, tempdir = NA, veckeys = NA, telonic_usrs = NA, telonic_pass = NA, ATS_usrs = NA, ATS_pass = NA, lotek_usrs = NA, lotek_pass = NA, tzone = 'America/Los_Angeles', subsetmonth = "02"){
