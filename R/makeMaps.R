@@ -83,7 +83,8 @@ makeMaps<-function(tempdir, gpsdat, id_df){
 # sf::st_write(lastpoint,paste(savedir,'LatestLocs.kml',sep=''),layer='locs',driver='KML',append = F)
 
 
-
+library(dplyr)
+  
   # make sure tdate is a real date-time (adjust tz/format if needed)
   gpsdat$tdate <- as.POSIXct(gpsdat$tdate, tz = "America/Denver")
   
