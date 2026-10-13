@@ -13,13 +13,12 @@
 #' }
 #' @seealso 
 #'  \code{\link[assertthat]{assert_that}}
-#'  \code{\link[purrr]{keep}}, \code{\link[purrr]{map}}
 #'  \code{\link[htmlwidgets]{saveWidget}}
 #' @rdname makeMaps
 #' @export 
 #' @importFrom assertthat assert_that
-#' @importFrom purrr keep walk
 #' @importFrom htmlwidgets saveWidget
+#' @importFrom rlang .data
 makeMaps<-function(tempdir, gpsdat, id_df){
   
   savedir = paste0(tempdir, "/", 'Products/')
