@@ -38,31 +38,31 @@ makeMaps<-function(tempdir, gpsdat, id_df){
   
   
   
-uni<-unique(gpsdat$AID)
-
-lastpoint<-data.frame()
-for(i in 1:length(uni)){
-  sub<-gpsdat[gpsdat$AID==uni[i],]
-  sub<-sub[order(sub$tdate,decreasing = T),]
-  sub<-as.data.frame(sub)
-  
-  lastpoint<-rbind(lastpoint,sub[1,])
-}
-lastpoint$AID<-as.character(lastpoint$AID)
-
-
-lastpoint<-lastpoint[complete.cases(lastpoint$x),]
-
-lastpoint<-sf::st_as_sf(lastpoint, coords = c('x', 'y'), crs = 4326) 
-names(lastpoint)[names(lastpoint) == 'AID']<-'name'
-
-
-cut<-Sys.time()-lubridate::days(2)
-lastpoint$Flag<-ifelse(lastpoint$tdate >= cut, 'http://maps.google.com/mapfiles/kml/pal2/icon18.png', 'http://maps.google.com/mapfiles/kml/pal4/icon48.png')
-
-
-kmlfile<-paste0(savedir, 'LatestLocs.kml')
-kmlname<-'BHS Locations'
+# uni<-unique(gpsdat$AID)
+# 
+# lastpoint<-data.frame()
+# for(i in 1:length(uni)){
+#   sub<-gpsdat[gpsdat$AID==uni[i],]
+#   sub<-sub[order(sub$tdate,decreasing = T),]
+#   sub<-as.data.frame(sub)
+#   
+#   lastpoint<-rbind(lastpoint,sub[1,])
+# }
+# lastpoint$AID<-as.character(lastpoint$AID)
+# 
+# 
+# lastpoint<-lastpoint[complete.cases(lastpoint$x),]
+# 
+# lastpoint<-sf::st_as_sf(lastpoint, coords = c('x', 'y'), crs = 4326) 
+# names(lastpoint)[names(lastpoint) == 'AID']<-'name'
+# 
+# 
+# cut<-Sys.time()-lubridate::days(2)
+# lastpoint$Flag<-ifelse(lastpoint$tdate >= cut, 'http://maps.google.com/mapfiles/kml/pal2/icon18.png', 'http://maps.google.com/mapfiles/kml/pal4/icon48.png')
+# 
+# 
+# kmlfile<-paste0(savedir, 'LatestLocs.kml')
+# kmlname<-'BHS Locations'
 
 
 # maptools::kmlPoints(lastpoint, kmlfile = kmlfile, name = lastpoint$name, icon = lastpoint$Flag, kmlname = kmlname)
@@ -79,10 +79,45 @@ kmlname<-'BHS Locations'
 # # plotKML::kml_close(file.name = paste0(savedir, 'LatestLocs.kml'))
 # # 
 # 
-lastpoint<-lastpoint[,names(lastpoint) == 'name']
-sf::st_write(lastpoint,paste(savedir,'LatestLocs.kml',sep=''),layer='locs',driver='KML',append = F)
+# lastpoint<-lastpoint[,names(lastpoint) == 'name']
+# sf::st_write(lastpoint,paste(savedir,'LatestLocs.kml',sep=''),layer='locs',driver='KML',append = F)
 
 
+
+  # make sure tdate is a real date-time (adjust tz/format if needed)
+  gpsdat$tdate <- as.POSIXct(gpsdat$tdate, tz = "America/Denver")
+  
+  # latest location with valid coordinates for each animal
+  lastpoint <- gpsdat %>%
+    as.data.frame() %>%
+    filter(!is.na(x), !is.na(y)) %>%
+    slice_max(tdate, n = 1, with_ties = FALSE, by = AID) %>%
+    mutate(name  = as.character(AID),
+           style = ifelse(tdate >= Sys.time() - lubridate::days(2), "#active", "#stale"))
+  
+  # build placemarks
+  placemarks <- paste0(
+    "<Placemark><name>", lastpoint$name, "</name>",
+    "<description>Last fix: ", format(lastpoint$tdate, "%Y-%m-%d %H:%M"), "</description>",
+    "<styleUrl>", lastpoint$style, "</styleUrl>",
+    "<Point><coordinates>", lastpoint$x, ",", lastpoint$y, ",0</coordinates></Point></Placemark>",
+    collapse = "\n"
+  )
+  
+  # assemble and write the KML
+  kmlname <- "BHS Locations"
+  kmlfile <- paste0(savedir, "LatestLocs.kml")
+  
+  kml <- paste0(
+    '<?xml version="1.0" encoding="UTF-8"?>\n',
+    '<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>', kmlname, '</name>\n',
+    '<Style id="active"><IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/pal2/icon18.png</href></Icon></IconStyle></Style>\n',
+    '<Style id="stale"><IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/pal4/icon48.png</href></Icon></IconStyle></Style>\n',
+    placemarks,
+    '\n</Document></kml>'
+  )
+  
+  writeLines(kml, kmlfile)
 
 
 
