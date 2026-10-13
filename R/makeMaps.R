@@ -118,6 +118,7 @@ makeMaps<-function(tempdir, gpsdat, id_df){
   )
   
   writeLines(kml, kmlfile)
+  
 
 
 
