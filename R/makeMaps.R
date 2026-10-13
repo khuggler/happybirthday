@@ -20,7 +20,6 @@
 #' @importFrom assertthat assert_that
 #' @importFrom purrr keep walk
 #' @importFrom htmlwidgets saveWidget
-#' @import dplyr
 makeMaps<-function(tempdir, gpsdat, id_df){
   
   savedir = paste0(tempdir, "/", 'Products/')
@@ -88,12 +87,14 @@ makeMaps<-function(tempdir, gpsdat, id_df){
   gpsdat$tdate <- as.POSIXct(gpsdat$tdate, tz = "America/Denver")
   
   # latest location with valid coordinates for each animal
-  lastpoint <- gpsdat %>%
-    as.data.frame() %>%
-    filter(!is.na(x), !is.na(y)) %>%
-    slice_max(tdate, n = 1, with_ties = FALSE, by = AID) %>%
-    mutate(name  = as.character(AID),
-           style = ifelse(tdate >= Sys.time() - lubridate::days(2), "#active", "#stale"))
+  lastpoint <- gpsdat |>
+    as.data.frame() |>
+    dplyr::filter(!is.na(.data$x), !is.na(.data$y)) |>
+    dplyr::slice_max(.data$tdate, n = 1, with_ties = FALSE, by = "AID") |>
+    dplyr::mutate(
+      name  = as.character(.data$AID),
+      style = ifelse(.data$tdate >= Sys.time() - lubridate::days(2), "#active", "#stale")
+    )
   
   # build placemarks
   placemarks <- paste0(

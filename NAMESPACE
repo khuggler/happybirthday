@@ -3,7 +3,6 @@
 export(getData)
 export(makeMaps)
 export(runUpdate)
-import(dplyr)
 importFrom(assertthat,assert_that)
 importFrom(collar,ats_login)
 importFrom(collar,ats_logout)
