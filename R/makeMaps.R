@@ -208,7 +208,7 @@ for (n in seq_along(uni)) {
 #add layer control
 # Take out ESRI provided tiles
 esri <- leaflet::providers[c(
-  "Esri.DeLorme",
+  #"Esri.DeLorme",
   "Esri.WorldImagery",
   "Esri.WorldTopoMap",
   "Esri.NatGeoWorldMap"
