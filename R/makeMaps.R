@@ -401,7 +401,7 @@ a <- leaflet::addLegend(
 
 
 
-htmlwidgets::saveWidget(a, file=paste(savedir, 'Last12Hours.html', sep = ""),
+htmlwidgets::saveWidget(a, file=paste(savedir, 'LastTwelve.html', sep = ""),
                         title="SheepMovement", selfcontained=TRUE)
 
 
