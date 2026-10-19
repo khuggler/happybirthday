@@ -300,7 +300,9 @@ a <- NULL
 
 sheepmap <- gpsdat |>
   arrange(AID, tdate) |>
-  slice_tail(n = 12)
+  group_by(AID) |>
+  slice_tail(n = 12) |>
+  ungroup()
 
 sheepmap <- sheepmap[
   stats::complete.cases(sheepmap$x, sheepmap$y),
