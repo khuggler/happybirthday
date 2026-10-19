@@ -298,9 +298,9 @@ rm(a)
 
 a <- NULL
 
-sheepmap <- gpsdat[
-  gpsdat$tdate >= Sys.time() - lubridate::hours(12),
-]
+sheepmap <- gpsdat |>
+  arrange(AID, tdate) |>
+  slice_tail(n = 12)
 
 sheepmap <- sheepmap[
   stats::complete.cases(sheepmap$x, sheepmap$y),
