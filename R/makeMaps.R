@@ -299,10 +299,10 @@ rm(a)
 a <- NULL
 
 sheepmap <- gpsdat |>
-  arrange(AID, tdate) |>
-  group_by(AID) |>
-  slice_tail(n = 12) |>
-  ungroup()
+  dplyr::arrange(AID, tdate) |>
+  dplyr::group_by(AID) |>
+  dplyr::slice_tail(n = 12) |>
+  dplyr::ungroup()
 
 sheepmap <- sheepmap[
   stats::complete.cases(sheepmap$x, sheepmap$y),
